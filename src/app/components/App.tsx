@@ -1,47 +1,125 @@
 import React from 'react';
-import logo from '../assets/logo.svg';
-import '../styles/ui.css';
+import {useState, useEffect, useCallback} from 'react';
 
-function App() {
-  const textbox = React.useRef<HTMLInputElement>(undefined);
+// import styled from '@emotion/styled';
+// import { styled } from '@mui/material/styles';
+import { createTheme, ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import Box from '@mui/material/Box';
+import AppBar from '@mui/material/AppBar';
+import Toolbar from '@mui/material/Toolbar';
+import Typography from '@mui/material/Typography';
+import Button from '@mui/material/Button';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemText from '@mui/material/ListItemText';
 
-  const countRef = React.useCallback((element: HTMLInputElement) => {
-    if (element) element.value = '5';
-    textbox.current = element;
-  }, []);
+const darkTheme = createTheme({ palette: { mode: 'dark' } });
+const lightTheme = createTheme({ palette: { mode: 'light' } });
 
-  const onCreate = () => {
-    const count = parseInt(textbox.current.value, 10);
-    parent.postMessage({ pluginMessage: { type: 'create-rectangles', count } }, '*');
+const App = () => {
+
+  const [showCSSvars, setShowCSSvars] = useState(false);
+  const [CSSvars, setCSSvars] = useState([]);
+
+  // Export the Figma Styles as tokens
+  const exportFigmaStyles = () => {
+    parent.postMessage({ pluginMessage: { type: 'export-styles'} }, '*');
   };
 
-  const onCancel = () => {
-    parent.postMessage({ pluginMessage: { type: 'cancel' } }, '*');
+  const downloadFile = (content, filename, contentType) => {
+    const a = document.createElement('a');
+    const file = new Blob([content], { type: contentType });
+  
+    a.href = URL.createObjectURL(file);
+    a.download = filename;
+    a.click();
+  
+    URL.revokeObjectURL(a.href);
   };
 
-  React.useEffect(() => {
-    // This is how we read messages sent from the plugin controller
-    window.onmessage = (event) => {
-      const { type, message } = event.data.pluginMessage;
-      if (type === 'create-rectangles') {
-        console.log(`Figma Says: ${message}`);
-      }
-    };
-  }, []);
+  const cssContent = `
+        body {
+            background-color: #f0f0f0;
+        }
+        .my-class { 
+          color: red;
+        }
+    `;
+
+  const handleDownloadCss = () => {
+    downloadFile(cssContent, 'styles.css', 'text/css');
+  };
+
+  let formattedCSS = ':root {';
+
+
+
+  onmessage = (event) => {   // Talk to the figma API
+    // console.log('Got this from the plugin: ', event.data.pluginMessage);
+    if (event.data.pluginMessage.type === 'css-tokens') {
+        const aCssVarTokens = event.data.pluginMessage.aCssVarTokens;
+
+        aCssVarTokens?.map((item, i) => (
+          formattedCSS += "\n\t" + item
+        ))
+
+        formattedCSS += "\n" + "}";
+
+        console.log('formattedCSS: ', formattedCSS);
+
+
+
+
+        // setCSSvars(aCssVarTokens);
+    }
+  };
+  
+  useEffect(() => {  // Listen for the cssVars changing
+    if (CSSvars.length > 2) {
+        setShowCSSvars(true);
+    }
+  }, [CSSvars]);
+
 
   return (
-    <div>
-      <img src={logo} />
-      <h2>Rectangle Creator</h2>
-      <p>
-        Count: <input ref={countRef} />
-      </p>
-      <button id="create" onClick={onCreate}>
-        Create
-      </button>
-      <button onClick={onCancel}>Cancel</button>
-    </div>
+    <ThemeProvider theme={darkTheme}>
+    <Box sx={{ display: 'flex' }}>
+      <CssBaseline />
+      <AppBar position="fixed">
+        <Toolbar>
+          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+              Css Vars
+          </Typography>
+          <ThemeProvider theme={lightTheme}>
+          <Button variant="contained" onClick={exportFigmaStyles} >Export Css Vars</Button>
+          <Button variant="contained" onClick={handleDownloadCss}>Download CSS</Button>
+          </ThemeProvider>
+        </Toolbar>
+      </AppBar>
+
+      {showCSSvars && (
+         <Box sx={{ flexGrow: 1, mt: '80px'}}>
+        <div id="cssVars">
+          <List dense>
+            <ListItem><ListItemText primary=':root {'/></ListItem>
+            {CSSvars?.map((item, i) => (
+              <ListItem key={i}><ListItemText sx={{
+                paddingLeft: 2,
+                color: 'success.main',
+              }} primary={item}/></ListItem>
+            ))}
+            <ListItem><ListItemText primary='}'/></ListItem>
+          </List>
+          
+        </div>
+        </Box>
+      )}
+    </Box>
+    </ThemeProvider>
   );
-}
+} // end App
 
 export default App;
+
+
