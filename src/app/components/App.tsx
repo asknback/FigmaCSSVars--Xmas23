@@ -1,8 +1,6 @@
 import React from 'react';
-import {useState, useEffect, useCallback} from 'react';
+import {useState, useEffect} from 'react';
 
-// import styled from '@emotion/styled';
-// import { styled } from '@mui/material/styles';
 import { createTheme, ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import Box from '@mui/material/Box';
@@ -10,17 +8,15 @@ import AppBar from '@mui/material/AppBar';
 import Toolbar from '@mui/material/Toolbar';
 import Typography from '@mui/material/Typography';
 import Button from '@mui/material/Button';
-import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
-import ListItemText from '@mui/material/ListItemText';
+import Stack from '@mui/system/Stack';
 
 const darkTheme = createTheme({ palette: { mode: 'dark' } });
-const lightTheme = createTheme({ palette: { mode: 'light' } });
 
 const App = () => {
 
   const [showCSSvars, setShowCSSvars] = useState(false);
-  const [CSSvars, setCSSvars] = useState([]);
+  const [FormattedCSSvars, setFormattedCSSvars] = useState('');
+  const [isButtonDisabled, setIsButtonDisabled] = useState(true);
 
   // Export the Figma Styles as tokens
   const exportFigmaStyles = () => {
@@ -38,48 +34,32 @@ const App = () => {
     URL.revokeObjectURL(a.href);
   };
 
-  const cssContent = `
-        body {
-            background-color: #f0f0f0;
-        }
-        .my-class { 
-          color: red;
-        }
-    `;
-
   const handleDownloadCss = () => {
-    downloadFile(cssContent, 'styles.css', 'text/css');
+    downloadFile(FormattedCSSvars, 'styles.css', 'text/css');
   };
-
-  let formattedCSS = ':root {';
-
-
 
   onmessage = (event) => {   // Talk to the figma API
     // console.log('Got this from the plugin: ', event.data.pluginMessage);
     if (event.data.pluginMessage.type === 'css-tokens') {
-        const aCssVarTokens = event.data.pluginMessage.aCssVarTokens;
+      const aCssVarTokens = event.data.pluginMessage.aCssVarTokens;
 
-        aCssVarTokens?.map((item, i) => (
-          formattedCSS += "\n\t" + item
-        ))
+      let CSSvars = ':root {'; 
+      aCssVarTokens?.map((item) => (
+        CSSvars += "\n\t" + item
+      ))
+      CSSvars += "\n" + "}";
 
-        formattedCSS += "\n" + "}";
-
-        console.log('formattedCSS: ', formattedCSS);
-
-
-
-
-        // setCSSvars(aCssVarTokens);
+      // console.log(CSSvars);
+      setFormattedCSSvars(CSSvars);
+      setIsButtonDisabled(false);
     }
   };
-  
-  useEffect(() => {  // Listen for the cssVars changing
-    if (CSSvars.length > 2) {
+
+  useEffect(() => {  // Listen for the FormattedCSSvars changing
+    if (FormattedCSSvars != '') {
         setShowCSSvars(true);
     }
-  }, [CSSvars]);
+  }, [FormattedCSSvars]);
 
 
   return (
@@ -88,31 +68,21 @@ const App = () => {
       <CssBaseline />
       <AppBar position="fixed">
         <Toolbar>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
-              Css Vars
+          <Typography variant="h6" color="primary" sx={{ flexGrow: 1, fontWeight: 'bold'}}>
+              CSS Vars Exploration
           </Typography>
-          <ThemeProvider theme={lightTheme}>
-          <Button variant="contained" onClick={exportFigmaStyles} >Export Css Vars</Button>
-          <Button variant="contained" onClick={handleDownloadCss}>Download CSS</Button>
-          </ThemeProvider>
+          <Stack direction="row" spacing={1}>
+            <Button variant="contained" color="secondary" onClick={exportFigmaStyles}>Create CSS Vars</Button>
+            <Button variant="contained" color="secondary" onClick={handleDownloadCss} disabled={isButtonDisabled}>Download CSS File</Button>
+          </Stack>
         </Toolbar>
       </AppBar>
 
       {showCSSvars && (
-         <Box sx={{ flexGrow: 1, mt: '80px'}}>
-        <div id="cssVars">
-          <List dense>
-            <ListItem><ListItemText primary=':root {'/></ListItem>
-            {CSSvars?.map((item, i) => (
-              <ListItem key={i}><ListItemText sx={{
-                paddingLeft: 2,
-                color: 'success.main',
-              }} primary={item}/></ListItem>
-            ))}
-            <ListItem><ListItemText primary='}'/></ListItem>
-          </List>
-          
-        </div>
+        <Box sx={{ flexGrow: 1, mt: '64px', p: 2}}>
+          <Typography component="pre" variant="body2" sx={{ color: 'success.main'}}>
+            {FormattedCSSvars}
+          </Typography>
         </Box>
       )}
     </Box>

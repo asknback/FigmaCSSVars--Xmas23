@@ -1,4 +1,3 @@
-// import {toSolidPaint, clone} from 'figx';
 import _ from 'lodash';
 import Color from 'tinycolor2';
 
@@ -70,8 +69,8 @@ figma.ui.onmessage = (msg) => {
 }
 
 function getSemanticCssVars() {
+  aCssVarTokens  = []; //reset the array
   const styles = figma.getLocalPaintStyles(); // get color styles from Figma file
-  // const aSemanticTokens = [];
 
   styles.map(({paints, name}) => {
       const colorArray = name.split('/');
@@ -120,31 +119,18 @@ function getContextualCssVars() {
               //////////////////////////////
               // Contextual Token
               const contextualTokenName = prefixContextual + 'button__' + toCamelCase(currentStyle.toString());
-              let contextualTokenValue = 'none;' //Default this to none - and override only if it has a fill
 
               for (let p = 0; p < aButtonStates.length; p++) { 
+                let contextualTokenValue = 'none;' //Default this to none - and override only if it has a fill
                 const currentState = aButtonStates[p]; // Default, Hover, etc 
-
                 const buttonInstanceName = stringStyle + ', ' + stringVariant + ', ' + stringSize + ', State=' + currentState;
-                const instance = findChildByName(Button, buttonInstanceName)
+                const instance = findChildByName(Button, buttonInstanceName) as ComponentNode;
 
-                if (instance.fills.length > 0) { // Does it have a fill at all?
-                  const paint = instance.fills[0]; // A bit lazy to just grab the first fill, but this should cover our need 
-                  if (isFigmaLinearGradient(paint) || isFigmaSolid(paint)) { 
-                    const fillCssColor = getCssColor(paint);
+                if (instance?.type === 'COMPONENT' && instance.fills?.[0]) {
+                  const paint = instance.fills[0]; //Given that we never add multiple colors to a style/comp
+                  const styleId = instance.fillStyleId.toString();
 
-                    if (instance.fillStyleId != '') { // Check if there is a connection to a style or if we only add the hex
-                      const style = figma.getStyleById(instance.fillStyleId);
-                      const aStyle = style.name.split('/');
-                      const semanticTokenName = aStyle.join('__');
-
-                      contextualTokenValue = 'var ( ' + prefixSemantic + toCamelCase(semanticTokenName) + ', ' + fillCssColor + ' );'
-
-                    } else {
-                      // console.log('instance.fillStyleId:', 'No Fill Style on this one');  // Skip css var and just use the Fill color 
-                      contextualTokenValue = fillCssColor + ';'
-                    }
-                  }
+                  contextualTokenValue = getContextualTokenValue(styleId, paint);
                 }
                 pushContextualToken(instance, stringStyle, stringVariant, stringSize, contextualTokenName, contextualTokenValue);
               }
@@ -152,68 +138,40 @@ function getContextualCssVars() {
               //////////////////////////////
               // onContextual Token
               const onContextualTokenName = prefixContextual + 'button__' + toCamelCase('on' + currentStyle.toString());
-              let onContextualTokenValue = 'none;' //Default this to none - and override only if it has a fill
 
               for (let p = 0; p < aButtonStates.length; p++) { 
+                let onContextualTokenValue = 'none;' //Default this to none - and override only if it has a fill
                 const currentState = aButtonStates[p]; // Default, Hover, etc 
-
                 const buttonInstanceName = stringStyle + ', ' + stringVariant + ', ' + stringSize + ', State=' + currentState;
-                const instance = findChildByName(Button, buttonInstanceName)
+                const instance = findChildByName(Button, buttonInstanceName) as ComponentNode;
+                const labelGroupInstance = findChildByName(instance, "Label Container") as FrameNode;
+                const labelInstance = findChildByName(labelGroupInstance, "Label") as TextNode;
 
-                const labelGroupInstance = findChildByName(instance, "Label Container");
-                const labelInstance = findChildByName(labelGroupInstance, "Label");
+                if (labelInstance?.type === 'TEXT' && labelInstance.fills?.[0]) {
+                  const paint = labelInstance.fills[0]; //Given that we never add multiple colors to a style/comp
+                  const styleId = instance.fillStyleId.toString();
 
-                
-
-                if (labelInstance.fills.length > 0) { // Does it have a fill at all?
-                  const paint = labelInstance.fills[0]; // A bit lazy to just grab the first fill, but this should cover our need 
-                  if (isFigmaLinearGradient(paint) || isFigmaSolid(paint)) { 
-                    const fillCssColor = getCssColor(paint);
-
-                    if (labelInstance.fillStyleId != '') { // Check if there is a connection to a style or if we only add the hex
-                      const style = figma.getStyleById(labelInstance.fillStyleId);
-                      const aStyle = style.name.split('/');
-                      const semanticTokenName = aStyle.join('__');
-
-                      onContextualTokenValue = 'var ( ' + prefixSemantic + toCamelCase(semanticTokenName) + ', ' + fillCssColor + ' );'
-
-                    } else {
-                      // console.log('instance.fillStyleId:', 'No Fill Style on this one');  // Skip css var and just use the Fill color 
-                      onContextualTokenValue = fillCssColor + ';'
-                    }
-                  }
+                  onContextualTokenValue = getContextualTokenValue(styleId, paint);
                 }
                 pushContextualToken(instance, stringStyle, stringVariant, stringSize, onContextualTokenName, onContextualTokenValue);
               }
+              
 
               ////////////////////////////
               // Contextual Border Token
               const contextualTokenBorderName = prefixContextual + 'button__' + toCamelCase(currentStyle.toString()) + 'Border';
-              let contextualTokenBorderValue = 'none;' //Default this to none - and override only if it has a border
 
-              for (let p = 0; p < aButtonStates.length; p++) { 
+              for (let p = 0; p < aButtonStates.length; p++) {
+                let contextualTokenBorderValue = 'none;' //Default this to none - and override only if it has a border
                 const currentState = aButtonStates[p]; // Default, Hover, etc 
-
                 const buttonInstanceName = stringStyle + ', ' + stringVariant + ', ' + stringSize + ', State=' + currentState;
-                const instance = findChildByName(Button, buttonInstanceName)
+                const instance = findChildByName(Button, buttonInstanceName) as ComponentNode;
 
-                if (instance.strokes.length > 0) { // Does it have a stroke at all?
-                  const paint = instance.strokes[0]; // A bit lazy to just grab the first stroke, but this should cover our needs 
-                  if (isFigmaLinearGradient(paint) || isFigmaSolid(paint)) { 
-                    const strokeCssColor = getCssColor(paint);
+                if (instance?.type === 'COMPONENT' && instance.strokes?.[0]) {
+                  const paint = instance.strokes[0]; //Given that we never add multiple colors to a style/comp
+                  const styleId = instance.strokeStyleId.toString();
 
-                    if (instance.strokeStyleId != '') { // Check if there is a connection to a style or if we only add the hex
-                      const style = figma.getStyleById(instance.strokeStyleId);
-                      const aStyle = style.name.split('/');
-                      const semanticTokenName = aStyle.join('__');
-
-                      contextualTokenBorderValue = 'var ( ' + prefixSemantic + toCamelCase(semanticTokenName) + ', ' + strokeCssColor + ' );'
-
-                    } else {
-                      // console.log('instance.strokeStyleId:', 'No Stroke Style on this one');  // Skip css var and just use the Stroke color 
-                      contextualTokenBorderValue = strokeCssColor + ';'
-                    }
-                  }
+                  contextualTokenBorderValue = getContextualTokenValue(styleId, paint);
                 }
                 pushContextualToken(instance, stringStyle, stringVariant, stringSize, contextualTokenBorderName, contextualTokenBorderValue);
               }
@@ -223,7 +181,7 @@ function getContextualCssVars() {
       }
     }
   }
-  // console.log('aCssVarTokens: ', aCssVarTokens);
+  console.log('aCssVarTokens length: ', aCssVarTokens.length);
   figma.ui.postMessage({type: 'css-tokens', aCssVarTokens});
 }
 
@@ -255,4 +213,23 @@ function findChildByName(parentInstance:any, instanceName:string):SceneNode | nu
       }
   }
   return null;  // Return null if no matching instance is found
+}
+
+function getContextualTokenValue(styleId:String, paint:Paint) {
+  let contextualTokenValue = '';
+
+  if (isFigmaLinearGradient(paint) || isFigmaSolid(paint)) { 
+    const fillCssColor = getCssColor(paint);
+
+    if (styleId != '') { // Check if there is a connection to a style or if we only add the hex
+      const style = figma.getStyleById(styleId.toString());
+      const aStyle = style.name.split('/');
+      const semanticTokenName = aStyle.join('__');
+      contextualTokenValue = 'var ( ' + prefixSemantic + toCamelCase(semanticTokenName) + ', ' + fillCssColor + ' );'
+    } else {
+      // console.log('instance.fillStyleId:', 'No Fill Style on this one');  // Skip css var and just use the Fill color 
+      contextualTokenValue = fillCssColor + ';'
+    }
+  }
+  return contextualTokenValue;
 }
